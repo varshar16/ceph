@@ -9,6 +9,7 @@ roles:
   - client.0
 tasks:
 - install:
+- cephadm:
 - cephfs_test_runner:
     module:
       - tasks.cephfs.test_nfs
