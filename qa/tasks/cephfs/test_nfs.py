@@ -20,7 +20,9 @@ class TestNFS(MgrTestCase):
         return self.mgr_cluster.mon_manager.raw_cluster_cmd("orch", *args)
 
     def setUp(self):
-        super(TestNFS, self).setUp()
+        super(TestNFS, self).setUp() 
+        self._load_module("cephadm")
+        self._orch_cmd("set", "backend", "cephadm")
 
         self.cluster_id = "test"
         self.export_type = "cephfs"
