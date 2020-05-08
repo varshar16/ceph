@@ -11,9 +11,8 @@ from teuthology.exceptions import CommandFailedError
 
 log = logging.getLogger(__name__)
 
-class TestNFS(MGRTestCase):
-    MGR_REQUIRED = 1
 
+class TestNFS(MgrTestCase):
     def _nfs_cmd(self, *args):
         return self.mgr_cluster.mon_manager.raw_cluster_cmd("nfs", *args)
 
