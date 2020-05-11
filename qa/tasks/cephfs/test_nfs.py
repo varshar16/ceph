@@ -30,6 +30,7 @@ class TestNFS(MgrTestCase):
 
     def test_create_cluster(self):
         nfs_output = self._nfs_cmd("cluster", "create", self.export_type, self.cluster_id)
+        time.sleep(8)
         orch_output = self._orch_cmd("ls")
         log.info("The Orch Output is {}".format(orch_output))
         log.info("The NFS Output is {}".format(nfs_output))
