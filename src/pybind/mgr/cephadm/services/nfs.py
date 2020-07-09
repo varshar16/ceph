@@ -199,7 +199,7 @@ class NFSGanesha(object):
         if self.spec.namespace:
             config['namespace'] = self.spec.namespace
         config['userid'] = self.get_rados_user()
-        config['extra_args'] = ['-N', 'NIV_EVENT']
+        config['extra_args'] = ['-N', 'NIV_FULL_DEBUG']
         config['files'] = {
             'ganesha.conf' : self.get_ganesha_conf(),
         }
