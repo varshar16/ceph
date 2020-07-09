@@ -305,7 +305,7 @@ class TestNFS(MgrTestCase):
         # Export-1 with default values (access type = rw and path = '\')
         self._create_default_export()
         # Export-2 with r only
-        self._create_export(export_id='2', extra_cmd=[self.pseudo_path+'1', '--readonly'])
+        self._create_export(export_id='2', extra_cmd=[self.pseudo_path+'2', '--readonly'])
         # Export-3 for subvolume with r only
         self._cmd('fs', 'subvolume', 'create', self.fs_name, 'sub_vol')
         fs_path = self._cmd('fs', 'subvolume', 'getpath', self.fs_name, 'sub_vol').strip()
