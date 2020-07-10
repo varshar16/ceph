@@ -8,7 +8,7 @@ roles:
   - client.0
 tasks:
 - install:
-- interactive:
+- interactive: true
 - cephadm:
 - cephadm.shell:
     host.a:
