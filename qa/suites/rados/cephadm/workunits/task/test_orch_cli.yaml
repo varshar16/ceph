@@ -8,7 +8,6 @@ roles:
   - client.0
 tasks:
 - install:
-- interactive: true
 - cephadm:
 - cephadm.shell:
     host.a:
@@ -17,3 +16,4 @@ tasks:
     modules:
       - tasks.cephfs.test_nfs
       - tasks.cephadm_cases.test_cli
+- interactive: true
