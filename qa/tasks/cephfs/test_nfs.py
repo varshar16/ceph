@@ -444,6 +444,7 @@ class TestNFS(MgrTestCase):
         user_id = 'test'
         fs_name = 'user_test_fs'
         pseudo_path = '/ceph'
+        self._cmd('auth', 'ls')
         self._cmd('fs', 'ls')
         self._cmd('fs', 'volume', 'create', fs_name)
         time.sleep(20)
@@ -452,6 +453,7 @@ class TestNFS(MgrTestCase):
             'allow r', 'osd',
             f'allow rw pool={pool} namespace={self.cluster_id}, allow rw tag cephfs data={fs_name}',
             'mds', f'allow rw path={self.path}').strip()
+        self._cmd('auth', 'ls')
         config = f""" LOG {{
         Default_log_level = FULL_DEBUG;
         }}
