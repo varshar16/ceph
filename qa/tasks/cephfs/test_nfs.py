@@ -444,8 +444,10 @@ class TestNFS(MgrTestCase):
         user_id = 'test'
         fs_name = 'user_test_fs'
         pseudo_path = '/ceph'
+        self._cmd('fs', 'ls')
         self._cmd('fs', 'volume', 'create', fs_name)
         time.sleep(20)
+        self._cmd('fs', 'ls')
         key = self._cmd('auth', 'get-or-create-key', f'client.{user_id}', 'mon',
             'allow r', 'osd',
             f'allow rw pool={pool} namespace={self.cluster_id}, allow rw tag cephfs data={fs_name}',
