@@ -72,17 +72,17 @@ popd
 #popd
 
 pushd kubejacker
-docker build -t $REPO/ceph/ceph:latest .
+podman build -t $REPO/ceph/ceph:latest .
 popd
 
 # Push the image to the repository
 #docker tag $REPO/$IMAGE:$TAG $REPO/$IMAGE:latest
-docker push $REPO/ceph/ceph:latest
+podman push $REPO/ceph/ceph:latest --tls-verify=false
 #docker push $REPO/$IMAGE:$TAG
 # With a plain HTTP registry
 #podman push $REPO/ceph/ceph:latest --tls-verify=false
 
 # Finally, bounce the containers to pick up the new image
-kubectl -n $NAMESPACE delete pod -l app=rook-ceph-mds
-kubectl -n $NAMESPACE delete pod -l app=rook-ceph-mgr
-kubectl -n $NAMESPACE delete pod -l app=rook-ceph-mon
+#kubectl -n $NAMESPACE delete pod -l app=rook-ceph-mds
+#kubectl -n $NAMESPACE delete pod -l app=rook-ceph-mgr
+#kubectl -n $NAMESPACE delete pod -l app=rook-ceph-mon
