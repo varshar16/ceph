@@ -423,27 +423,36 @@ class TestNFS(MgrTestCase):
         self._cmd('fs', 'volume', 'rm', self.fs_name, '--yes-i-really-mean-it')
         self._test_delete_cluster()
 
+    def _write_to_read_only_export(self, pseudo_path):
+        port, ip = self._get_port_ip_info()
+        try:
+            self._test_mnt(pseudo_path, port, ip)
+        except CommandFailedError as e:
+            # Write to cephfs export should fail for test to pass
+            if e.exitstatus != errno.EPERM:
+                raise
+
     def test_write_to_read_only_export(self):
         '''
         Test write to readonly export.
         '''
         self._test_create_cluster()
         self._create_export(export_id='1', create_fs=True, extra_cmd=[self.pseudo_path, '--readonly'])
-        port, ip = self._get_port_ip_info()
-        try:
-            self._test_mnt(self.pseudo_path, port, ip)
-        except CommandFailedError as e:
-            # Write to cephfs export should fail for test to pass
-            if e.exitstatus != errno.EPERM:
-                raise
+        self._write_to_read_only_export(self.pseudo_path)
         self._test_delete_cluster()
 
     def test_update_export(self):
         self._create_default_export()
         nfs_output = json.loads(self._nfs_cmd('export', 'get', self.cluster_id, self.pseudo_path))
+        nfs_output['pseudo'] = '/testing'
+        nfs_output['access_type'] = 'RO'
         log.info(f"Checkout nfs_output {nfs_output}")
-        #self.ctx.cluster.run(args=['sudo', 'ceph', 'nfs', 'cluster', 'config',
-        #    'set', self.cluster_id, '-i', '-'], stdin=config)
+        self._write_to_read_only_export(self.pseudo_path)
+        self.ctx.cluster.run(args=['sudo', 'ceph', 'nfs', 'export', 'update', '-i', '-'], stdin=json.dumps(nfs_output))
+        nfs_output1 = json.loads(self._nfs_cmd('export', 'get', self.cluster_id, '/testing'))
+        log.info(f"Checkout nfs_output {nfs_output1}")
+        self._write_to_read_only_export(nfs_output['pseudo'])
+        self._test_delete_cluster()
 
     def test_cluster_info(self):
         '''
