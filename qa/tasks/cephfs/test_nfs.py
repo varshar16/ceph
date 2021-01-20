@@ -438,6 +438,13 @@ class TestNFS(MgrTestCase):
                 raise
         self._test_delete_cluster()
 
+    def test_update_export(self):
+        self._create_default_export()
+        nfs_output = json.loads(self._nfs_cmd('export', 'get', self.cluster_id, self.pseudo_path))
+        log.info(f"Checkout nfs_output {nfs_output}")
+        #self.ctx.cluster.run(args=['sudo', 'ceph', 'nfs', 'cluster', 'config',
+        #    'set', self.cluster_id, '-i', '-'], stdin=config)
+
     def test_cluster_info(self):
         '''
         Test cluster info outputs correct ip and hostname
@@ -472,7 +479,9 @@ class TestNFS(MgrTestCase):
             f'allow rw pool={pool} namespace={self.cluster_id}, allow rw tag cephfs data={fs_name}',
             'mds', f'allow rw path={self.path}').strip()
         config = f""" LOG {{
-        Default_log_level = FULL_DEBUG;
+                           COMPONENTS {{
+                                        ALL = FULL_DEBUG;
+                           }}
         }}
 
         EXPORT {{
