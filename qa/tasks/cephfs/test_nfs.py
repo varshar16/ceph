@@ -427,6 +427,7 @@ class TestNFS(MgrTestCase):
         port, ip = self._get_port_ip_info()
         try:
             self._test_mnt(pseudo_path, port, ip)
+            self.fail("Successful write to read only export")
         except CommandFailedError as e:
             # Write to cephfs export should fail for test to pass
             if e.exitstatus != errno.EPERM:
@@ -442,16 +443,34 @@ class TestNFS(MgrTestCase):
         self._test_delete_cluster()
 
     def test_update_export(self):
+        def invalid_option_check(key, value):
+            output = dict(nfs_output)
+            output[key] = value
+            try:
+                self.ctx.cluster.run(args=['sudo', 'ceph', 'nfs', 'export', 'update', '-i', '-'], stdin=json.dumps(output))
+            except CommandFailedError as e:
+                log.info(f"EXit status {e.exitstatus}")
+
         self._create_default_export()
         nfs_output = json.loads(self._nfs_cmd('export', 'get', self.cluster_id, self.pseudo_path))
-        nfs_output['pseudo'] = '/testing'
-        nfs_output['access_type'] = 'RO'
         log.info(f"Checkout nfs_output {nfs_output}")
-        self._write_to_read_only_export(self.pseudo_path)
-        self.ctx.cluster.run(args=['sudo', 'ceph', 'nfs', 'export', 'update', '-i', '-'], stdin=json.dumps(nfs_output))
-        nfs_output1 = json.loads(self._nfs_cmd('export', 'get', self.cluster_id, '/testing'))
+        port, ip = self._get_port_ip_info()
+        self._test_mnt(self.pseudo_path, port, ip)
+        invalid_option_check('access_type', 'RO')
+        nfs_output1 = json.loads(self._nfs_cmd('export', 'get', self.cluster_id, self.pseudo_path))
         log.info(f"Checkout nfs_output {nfs_output1}")
-        self._write_to_read_only_export(nfs_output['pseudo'])
+        invalid_option_check('pseudo', '/testing')
+        try:
+            self._test_mnt('/testing', port, ip)
+            self.fail("Pseudo got updated successfully")
+        except CommandFailedError as e:
+            if e.exitstatus != errno.ENOENT:
+                raise
+
+        # Invalid updates
+        invalid_option_check('export_id', 5)
+
+
         self._test_delete_cluster()
 
     def test_cluster_info(self):
