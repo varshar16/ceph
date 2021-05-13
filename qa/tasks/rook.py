@@ -54,7 +54,7 @@ def shell(ctx, config):
 
 
 def _shell(ctx, config, args, **kwargs):
-    cluster_name = config['cluster']
+    cluster_name = config.get('cluster', 'rook')
     return _kubectl(
         ctx, config,
         [
@@ -158,14 +158,9 @@ def rook_cluster(ctx, config):
     teuthology.deep_merge(cluster['spec'], config.get('spec', {}))
     
     cluster_yaml = yaml.dump(cluster)
-    log.info(f'Cluster: {cluster_yaml}')
-    ctx.rook[cluster_name].remote.write_file(
-        'cluster.yaml',
-        cluster_yaml,
-    )
-
+    log.info(f'Cluster:\n{cluster_yaml}')
     try:
-        _kubectl(ctx, config, ['create', '-f', 'cluster.yaml'])
+        _kubectl(ctx, config, ['create', '-f', '-'], stdin=cluster_yaml)
         yield
 
     except Exception as e:
