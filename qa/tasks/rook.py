@@ -86,18 +86,27 @@ def rook_operator(ctx, config):
         ]
     )
 
+    # operator.yaml
+    operator_yaml = ctx.rook[cluster_name].remote.read_file(
+        'rook/cluster/examples/kubernetes/ceph/operator.yaml'
+    )
+    rook_image = config.get('rook_image')
+    if rook_image:
+        log.info(f'Patching operator to use image {rook_image}')
+        crs = list(yaml.load_all(operator_yaml, Loader=yaml.FullLoader))
+        assert len(crs) == 2
+        crs[1]['spec']['template']['spec']['containers'][0]['image'] = rook_image
+        operator_yaml = yaml.dump_all(crs)
+    ctx.rook[cluster_name].remote.write_file('operator.yaml', operator_yaml)
+
     try:
         log.info('Deploying operator')
-        try:
-            # FIXME FIXME FIXME FIXME
-            _kubectl(ctx, config, [
-                'create',
-                '-f', 'rook/cluster/examples/kubernetes/ceph/crds.yaml',
-                '-f', 'rook/cluster/examples/kubernetes/ceph/common.yaml',
-                '-f', 'rook/cluster/examples/kubernetes/ceph/operator.yaml',
-            ])
-        except:
-            pass
+        _kubectl(ctx, config, [
+            'create',
+            '-f', 'rook/cluster/examples/kubernetes/ceph/crds.yaml',
+            '-f', 'rook/cluster/examples/kubernetes/ceph/common.yaml',
+            '-f', 'operator.yaml',
+        ])
 
         yield
 
@@ -109,11 +118,11 @@ def rook_operator(ctx, config):
         log.info('Cleaning up rook')
         _kubectl(ctx, config, [
             'delete',
-            '-f', 'rook/cluster/examples/kubernetes/ceph/crds.yaml',
+            '-f', 'operator.yaml',
             '-f', 'rook/cluster/examples/kubernetes/ceph/common.yaml',
-            '-f', 'rook/cluster/examples/kubernetes/ceph/operator.yaml',
+            '-f', 'rook/cluster/examples/kubernetes/ceph/crds.yaml',
         ])
-        ctx.rook[cluster_name].remote.run(args=['rm', '-rf', 'rook'])
+        ctx.rook[cluster_name].remote.run(args=['rm', '-rf', 'rook', 'operator.yaml'])
         run.wait(
             ctx.cluster.run(
                 args=[
@@ -127,40 +136,65 @@ def rook_operator(ctx, config):
 def rook_cluster(ctx, config):
     cluster_name = config['cluster']
 
-    # pull cluster.yaml
-    cluster_yaml = ctx.rook[cluster_name].remote.read_file(
-        'rook/cluster/examples/kubernetes/ceph/cluster.yaml'
-    )
-    cluster = yaml.load(cluster_yaml, Loader=yaml.FullLoader)
+    # count how many OSDs we'll create
+    num_devs = 0
+    num_hosts = 0
+    for remote in ctx.cluster.remotes.keys():
+        ls = remote.read_file('/scratch_devs').decode('utf-8').strip().splitlines()
+        num_devs += len(ls)
+        num_hosts += 1
 
-    cluster['spec']['cephVersion']['image'] = ctx.rook[cluster_name].image
-    cluster['spec']['cephVersion']['allowUnsupported'] = True
-    cluster['spec']['storage'] = {
-        'storageClassDeviceSets': [
-            {
-                'name': 'scratch',
-                'count': 100,
-                'portable': False,
-                'volumeClaimTemplates': [
+    cluster = {
+        'apiVersion': 'ceph.rook.io/v1',
+        'kind': 'CephCluster',
+        'metadata': {'name': 'rook-ceph', 'namespace': 'rook-ceph'},
+        'spec': {
+            'cephVersion': {
+                'image': ctx.rook[cluster_name].image,
+                'allowUnsupported': True,
+            },
+            'dataDirHostPath': '/var/lib/rook',
+            'skipUpgradeChecks': True,
+            'mgr': {
+                'count': 1,
+            },
+            'mon': {
+                'count': num_hosts,
+                'allowMultiplePerNode': True,
+            },
+            'storage': {
+                'storageClassDeviceSets': [
                     {
-                        'metadata': {'name': 'data'},
-                        'resources': {'requests': {'storage': '10 Gi'}},
-                        'spec': {
-                            'storageClassName': 'scratch',
-                            'volumeMode': 'Block',
-                            'accessModes': ['ReadWriteOnce'],
-                        },
-                    },
+                        'name': 'scratch',
+                        'count': num_devs,
+                        'portable': False,
+                        'volumeClaimTemplates': [
+                            {
+                                'metadata': {'name': 'data'},
+                                'spec': {
+                                    'resources': {
+                                        'requests': {
+                                            'storage': '10Gi'  # <= (lte) the actual PV size
+                                        }
+                                    },
+                                    'storageClassName': 'scratch',
+                                    'volumeMode': 'Block',
+                                    'accessModes': ['ReadWriteOnce'],
+                                },
+                            },
+                        ],
+                    }
                 ],
             }
-        ],
+        }
     }
     teuthology.deep_merge(cluster['spec'], config.get('spec', {}))
     
     cluster_yaml = yaml.dump(cluster)
     log.info(f'Cluster:\n{cluster_yaml}')
     try:
-        _kubectl(ctx, config, ['create', '-f', '-'], stdin=cluster_yaml)
+        ctx.rook[cluster_name].remote.write_file('cluster.yaml', cluster_yaml)
+        _kubectl(ctx, config, ['create', '-f', 'cluster.yaml'])
         yield
 
     except Exception as e:
@@ -178,21 +212,6 @@ def rook_cluster(ctx, config):
 def rook_toolbox(ctx, config):
     cluster_name = config['cluster']
     try:
-        # wait for pod to start
-        """
-        log.info('Waiting for mon')
-        saw_mon = False
-        while not saw_mon:
-            p = _kubectl(ctx, config, ['-n', 'rook-ceph', 'get', 'pods'],
-                         stdout=BytesIO())
-            for line in p.stdout.getvalue().decode('utf-8').strip().splitlines():
-                name, ready, status, _ = line.split(None, 3)
-                log.info(f'name {name} status {status}')
-                if name.startswith('rook-ceph-mon-a-') and status == 'Running':
-                    saw_mon = True
-                    break
-            time.sleep(5)
-        """
         _kubectl(ctx, config, [
             'create',
             '-f', 'rook/cluster/examples/kubernetes/ceph/toolbox.yaml',
