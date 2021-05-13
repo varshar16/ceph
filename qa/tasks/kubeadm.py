@@ -223,6 +223,7 @@ def kubeadm_init_join(ctx, config):
         bootstrap_remote.run(args=cmd)
 
         # join additional nodes
+        joins = []
         for remote, ip in ctx.kubeadm[cluster_name].remotes.items():
             if remote == bootstrap_remote:
                 continue
@@ -233,8 +234,8 @@ def kubeadm_init_join(ctx, config):
                 '--token', ctx.kubeadm[cluster_name].token,
                 '--discovery-token-unsafe-skip-ca-verification',
             ]
-            remote.run(args=cmd)
-
+            joins.append(remote.run(args=cmd, wait=False))
+        run.wait(joins)
         yield
 
     except Exception as e:
