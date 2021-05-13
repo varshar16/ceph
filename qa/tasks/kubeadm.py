@@ -304,7 +304,14 @@ def pod_network(ctx, config):
     else:
         raise RuntimeError(f'unrecognized pod_network {pnet}')
 
-    yield
+    try:
+        yield
+
+    finally:
+        _kubectl(ctx, config, [
+            'delete', '-f',
+            'https://raw.githubusercontent.com/coreos/flannel/master/Documentation/kube-flannel.yml',
+        ])
 
 
 @contextlib.contextmanager
@@ -359,7 +366,8 @@ def setup_pvs(ctx, config):
         'volumeBindingMode': 'WaitForFirstConsumer',
     })
     y = yaml.dump_all(crs)
-    log.info(f'Creating PVs + StorageClass:\n{y}')
+    log.info('Creating PVs + StorageClass')
+    log.debug(y)
     _kubectl(ctx, config, ['create', '-f', '-'], stdin=y)
 
     yield
