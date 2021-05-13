@@ -346,6 +346,10 @@ def setup_pvs(ctx, config):
                     }
                 }
             })
+            # overwriting first few MB is enough to make k8s happy
+            remote.run(args=[
+                'sudo', 'dd', 'if=/dev/zero', f'of={dev}', 'bs=1M', 'count=10'
+            ])
     crs.append({
         'kind': 'StorageClass',
         'apiVersion': 'storage.k8s.io/v1',
