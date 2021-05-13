@@ -108,6 +108,22 @@ def rook_operator(ctx, config):
             '-f', 'operator.yaml',
         ])
 
+        # wait for operator
+        op_name = None
+        while not op_name:
+            p = _kubectl(ctx, config, ['-n', 'rook-ceph', 'get', 'pods'],
+                         stdout=BytesIO())
+            for line in p.stdout.getvalue().decode('utf-8').strip().splitlines():
+                name, ready, status, _ = line.split(None, 3)
+                if name.startswith('rook-ceph-operator-') and status == 'Running':
+                    op_name = name
+                    break
+            time.sleep(5)
+
+        # log operator output
+        op_job = _kubectl(ctx, config, ['-n', 'rook-ceph', 'logs', '-f', op_name],
+                          wait=False, logger=log.getChild('operator'))
+
         yield
 
     except Exception as e:
@@ -123,6 +139,8 @@ def rook_operator(ctx, config):
             '-f', 'rook/cluster/examples/kubernetes/ceph/crds.yaml',
         ])
         ctx.rook[cluster_name].remote.run(args=['rm', '-rf', 'rook', 'operator.yaml'])
+        if op_job:
+            op_job.wait()
         run.wait(
             ctx.cluster.run(
                 args=[
